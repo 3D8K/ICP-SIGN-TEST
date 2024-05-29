@@ -22,6 +22,10 @@ export function Playground() {
   const [signedPrincipal, setSignedPrincipal] = useState("");
   const [isAuthenticated, setIsAuthenticated] = useState(false);
 
+  const [sign, setSign] = useState("");
+  const [pubkey, setPubkey] = useState("");
+  const [verif, setVerif] = useState(false);
+
   useEffect(() => {
     async function initializeNFID() {
       try {
@@ -104,7 +108,7 @@ export function Playground() {
           const { privateKey } = data;
           const uint8Array = encoder.encode(json._principal.__principal__);
           const principal = uint8Array.buffer;
-          const result = window.crypto.subtle
+          window.crypto.subtle
             .sign(algorithm, privateKey, principal)
             .then((res) => {
               const text = arrayBufferToHex(res);
@@ -115,6 +119,42 @@ export function Playground() {
         }
       };
     };
+  };
+
+  const isVerifyHandler = async () => {
+    const json = JSON.parse(info);
+    const publicKeyBuffer = new Uint8Array(Buffer.from(pubkey, "hex"));
+
+    const signatureBuffer = new Uint8Array(Buffer.from(sign, "hex"));
+    const dataBuffer = new TextEncoder().encode(json._principal.__principal__);
+
+    try {
+      const publicKey = await crypto.subtle.importKey(
+        "spki",
+        publicKeyBuffer,
+        {
+          name: "ECDSA",
+          namedCurve: "P-256",
+        },
+        true,
+        ["verify"]
+      );
+
+      const isVerified = await crypto.subtle.verify(
+        {
+          name: "ECDSA",
+          hash: { name: "SHA-256" },
+        },
+        publicKey,
+        signatureBuffer,
+        dataBuffer
+      );
+
+      setVerif(isVerified);
+    } catch (err: any) {
+      setVerif(false);
+      console.error(err);
+    }
   };
 
   return (
@@ -162,6 +202,32 @@ export function Playground() {
           disabled={true}
           value={signedPrincipal}
         />
+      </div>
+      <div className="flex flex-col gap-6 mt-6 items-center">
+        <p>Compare sign</p>
+        <div className="flex flex-row gap-6">
+          <textarea
+            placeholder="sign"
+            className="text-black rounded-md w-96 h-32 p-6"
+            value={sign}
+            onChange={(e) => setSign(e.target.value)}
+          ></textarea>
+          <textarea
+            placeholder="public key"
+            className="text-black rounded-md w-96 h-32 p-6"
+            value={pubkey}
+            onChange={(e) => setPubkey(e.target.value)}
+          ></textarea>
+        </div>
+        <button
+          className="p-6 bg-green-500 rounded-sm max-w-24"
+          onClick={isVerifyHandler}
+        >
+          Verify
+        </button>
+        <div className={`p-3 text-sm ${verif ? "bg-green-500" : "bg-red-500"}`}>
+          {verif ? "True" : "False"}
+        </div>
       </div>
     </div>
   );
